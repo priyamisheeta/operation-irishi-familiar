@@ -94,7 +94,7 @@ jobs:
           android.nonTransitiveRClass=true
           EOF
 
-      - name: Fix GateActivity Kotlin return
+      - name: Fix GateActivity
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -104,23 +104,43 @@ jobs:
               "com/operationirishi/familiar/GateActivity.kt"
           )
 
-          s = p.read_text()
+          lines = p.read_text().splitlines()
 
-          old = """                            finish()
-                        } else {"""
+          already_fixed = False
+          patched = False
 
-          fixed = """                            finish()
-                            null
-                        } else {"""
+          for i, line in enumerate(lines):
+              if line.strip() == "finish()":
+                  # Find next non-empty line
+                  j = i + 1
 
-          if fixed in s:
-              print("GateActivity already fixed.")
-          elif old in s:
-              p.write_text(s.replace(old, fixed, 1))
-              print("GateActivity patched successfully.")
+                  while j < len(lines) and not lines[j].strip():
+                      j += 1
+
+                  if j < len(lines) and lines[j].strip() == "} else {":
+
+                      # Already fixed?
+                      if i + 1 < len(lines) and lines[i + 1].strip() == "null":
+                          already_fixed = True
+                          break
+
+                      indent = line[:len(line) - len(line.lstrip())]
+
+                      lines.insert(i + 1, indent + "null")
+                      patched = True
+                      break
+
+          if patched:
+              p.write_text("\n".join(lines) + "\n")
+              print("GateActivity fixed successfully.")
+          elif already_fixed:
+              print("GateActivity was already fixed.")
           else:
+              print("----- GateActivity context -----")
+              for n, line in enumerate(lines[:100], 1):
+                  print(f"{n:03}: {line}")
               raise SystemExit(
-                  "Could not locate GateActivity return block."
+                  "Could not locate allowed-pass return block."
               )
           PY
 
