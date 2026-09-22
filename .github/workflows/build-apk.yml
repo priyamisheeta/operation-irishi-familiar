@@ -29,121 +29,6 @@ jobs:
           mkdir project
           unzip -q Operation_Irishi_Familiar_PUBLIC_BUILD_v0.1.zip -d project
 
-      - name: Repair Android build configuration
-        run: |
-          cat > project/build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application") version "9.4.1" apply false
-              id("org.jetbrains.kotlin.plugin.compose") version "2.4.10" apply false
-          }
-          EOF
-
-          cat > project/app/build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.plugin.compose")
-          }
-
-          android {
-              namespace = "com.operationirishi.familiar"
-              compileSdk = 36
-
-              defaultConfig {
-                  applicationId = "com.operationirishi.familiar"
-                  minSdk = 26
-                  targetSdk = 36
-                  versionCode = 1
-                  versionName = "0.1.0"
-              }
-
-              buildFeatures {
-                  compose = true
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-
-              packaging {
-                  resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
-              }
-          }
-
-          dependencies {
-              val composeBom = platform("androidx.compose:compose-bom:2026.04.01")
-
-              implementation(composeBom)
-              androidTestImplementation(composeBom)
-
-              implementation("androidx.core:core-ktx:1.17.0")
-              implementation("androidx.activity:activity-compose:1.13.0")
-
-              implementation("androidx.compose.ui:ui")
-              implementation("androidx.compose.ui:ui-tooling-preview")
-              implementation("androidx.compose.foundation:foundation")
-              implementation("androidx.compose.material3:material3")
-
-              debugImplementation("androidx.compose.ui:ui-tooling")
-          }
-          EOF
-
-          cat > project/gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          EOF
-
-      - name: Fix GateActivity
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path(
-              "project/app/src/main/java/"
-              "com/operationirishi/familiar/GateActivity.kt"
-          )
-
-          lines = p.read_text().splitlines()
-
-          already_fixed = False
-          patched = False
-
-          for i, line in enumerate(lines):
-              if line.strip() == "finish()":
-                  # Find next non-empty line
-                  j = i + 1
-
-                  while j < len(lines) and not lines[j].strip():
-                      j += 1
-
-                  if j < len(lines) and lines[j].strip() == "} else {":
-
-                      # Already fixed?
-                      if i + 1 < len(lines) and lines[i + 1].strip() == "null":
-                          already_fixed = True
-                          break
-
-                      indent = line[:len(line) - len(line.lstrip())]
-
-                      lines.insert(i + 1, indent + "null")
-                      patched = True
-                      break
-
-          if patched:
-              p.write_text("\n".join(lines) + "\n")
-              print("GateActivity fixed successfully.")
-          elif already_fixed:
-              print("GateActivity was already fixed.")
-          else:
-              print("----- GateActivity context -----")
-              for n, line in enumerate(lines[:100], 1):
-                  print(f"{n:03}: {line}")
-              raise SystemExit(
-                  "Could not locate allowed-pass return block."
-              )
-          PY
-
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -153,9 +38,7 @@ jobs:
       - name: Install Android SDK
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-
           "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
@@ -168,8 +51,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: project
-        run: |
-          gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
