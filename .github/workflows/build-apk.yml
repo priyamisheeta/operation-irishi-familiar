@@ -106,23 +106,22 @@ jobs:
 
           s = p.read_text()
 
-          old = """                            setResult(Activity.RESULT_OK)
-                            finish()
+          old = """                            finish()
                         } else {"""
 
-          new = """                            setResult(Activity.RESULT_OK)
-                            finish()
+          fixed = """                            finish()
                             null
                         } else {"""
 
-          if old not in s:
+          if fixed in s:
+              print("GateActivity already fixed.")
+          elif old in s:
+              p.write_text(s.replace(old, fixed, 1))
+              print("GateActivity patched successfully.")
+          else:
               raise SystemExit(
-                  "ERROR: Could not find GateActivity patch target"
+                  "Could not locate GateActivity return block."
               )
-
-          p.write_text(s.replace(old, new, 1))
-
-          print("GateActivity patched successfully.")
           PY
 
       - name: Set up Java 17
